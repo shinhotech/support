@@ -12,7 +12,7 @@ Maven
 
 ```xml
     <dependency>
-        <groupId>com.mcy</groupId>
+        <groupId>com.shinho</groupId>
         <artifactId>log-async-db-spring-boot-starter</artifactId>
         <version>1.0.0.RELEASE</version>
     </dependency>
