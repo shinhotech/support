@@ -23,7 +23,7 @@ public class ActionLogProperties {
     /**
      * 是否开启日志记录数据库
      */
-    private boolean isDbEnable=true;
+    private boolean dbEnable=true;
 
     /**
      * 项目名称，多项目配置

@@ -25,7 +25,7 @@ action:
   async:
     log:
       enable: true  #是否开启
-      isDbEnable: true #是否存储数据库
+      dbEnable: true #是否存储数据库
       project: ${spring.application.name} #项目名称
       trace: traceId #全局链路trace的key
       token: x-amz-security-token 用户令牌的key
