@@ -39,4 +39,9 @@ public class ActionLogProperties {
      * 微服务用户令牌key
      */
     private String token="X_AMZ_SECURITY_TOKEN";
+
+    /**
+     * 存储天数,默认存储最近7天
+     */
+    private long storage=7;
 }
