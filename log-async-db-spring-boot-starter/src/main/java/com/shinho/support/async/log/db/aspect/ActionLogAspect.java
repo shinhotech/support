@@ -184,10 +184,19 @@ public class ActionLogAspect {
                     FutureTask<Object> task = new FutureTask<Object>(new Callable<Object>() {
                         @Override
                         public Object call() throws Exception {
+                            //存储异常堆栈信息到数据库,获取具体堆栈异常日志
+                            StringBuffer errStack=new StringBuffer(2048);
+                            errStack.append(e.toString());
+                            StackTraceElement[] stackArr=e.getStackTrace();
+                            if(!ObjectUtils.isEmpty(stackArr)){
+                                for (StackTraceElement stack: stackArr) {
+                                    errStack.append("\n\tat " + stack);
+                                }
+                            }
                             String sql="INSERT INTO `sys_action_log`(`token`,`trace`,`project`,`moudle`,`action_type`,`type`,`request_uri`,`class_name`,`method_name`,`user_agent`,`remote_ip`,`request_method`,`request_params`,`response_params`,`request_mac`,`exception`,`action_thread`,`action_start_time`,`action_end_time`,`action_time`,`create_time`)\n" +
                                     "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
                             return jdbcTemplate.update(sql,token,trace,actionLogProperties.getProject(),moudle,actionType,"0",request.getRequestURI(),className,methodName,request.getHeader("user-agent"),RequestUtil.getRemoteIp(request),request.getMethod(),requestParams,responseParams
-                                    , MacInfoUtil.getMac(),e.toString(),threadName,new Date(beginTime),new Date(),System.currentTimeMillis()-beginTime,new Date())>0;
+                                    , MacInfoUtil.getMac(),errStack.toString(),threadName,new Date(beginTime),new Date(),System.currentTimeMillis()-beginTime,new Date())>0;
                         }
                     });
                     mdcExecutor.execute(RunnableWrapper.of(task));    //为提升访问速率, 日志记录采用异步的方式进行.
