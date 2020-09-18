@@ -44,13 +44,21 @@ import java.util.concurrent.FutureTask;
 @Slf4j
 public class ActionLogAspect {
 
-    private static final ThreadLocal<Long> startTimeThreadLocal = new NamedThreadLocal<Long>("ThreadLocal StartTime");
+    private static  final ThreadLocal<Long> startTimeThreadLocal = new NamedThreadLocal<Long>("ThreadLocal StartTime");
 
-    private static  String trace="";//微服务请求链路编号
+    private String trace="";//微服务请求链路编号
 
-    private static  String token="";//微服务用户操作token
+    private String token="";//微服务用户操作token
 
-    private static  String responseParams="";//返回结果
+    private String responseParams="";//返回结果
+
+    private String requestUrl="";//请求地址
+
+    private String userAgent="";//用户代理
+
+    private String remoteIp="";//请求IP
+
+    private String requestMethod="";//请求方式
 
     @Autowired
     ActionLogProperties actionLogProperties;
@@ -87,6 +95,10 @@ public class ActionLogAspect {
          * 用户请求微服务的token
          */
         token=StringUtils.isNotEmpty(request.getHeader(actionLogProperties.getToken()))?request.getHeader(actionLogProperties.getToken()):"";
+        requestUrl=request.getRequestURI();//请求地址
+        userAgent=request.getHeader("user-agent");//用户代理
+        remoteIp=RequestUtil.getRemoteIp(request);//请求的IP
+        requestMethod=request.getMethod();//请求方法
         String className = pjp.getTarget().getClass().getName();//类名
         String methodName = method.getName();//方法名
         Object[] params = pjp.getArgs();//参数列表
@@ -110,7 +122,7 @@ public class ActionLogAspect {
             long beginTime = System.currentTimeMillis();//1、开始时间
             startTimeThreadLocal.set(beginTime);        //线程绑定变量（该数据只有当前请求的线程可见）
             log.info("开始 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}]",
-                    token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, request.getHeader("user-agent"), request.getRequestURI(), request.getMethod(), MacInfoUtil.getMac(), RequestUtil.getRemoteIp(request),
+                    token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
                     requestParams);
             Object result = null;
             try {
@@ -121,18 +133,18 @@ public class ActionLogAspect {
                 long endTime = System.currentTimeMillis();    //2、结束时间
                 if (ObjectUtils.isEmpty(result)) {
                     log.info("完成 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}],返回[{}]",
-                            token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, request.getHeader("user-agent"), request.getRequestURI(), request.getMethod(), MacInfoUtil.getMac(), RequestUtil.getRemoteIp(request),
+                            token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
                             requestParams, result);
                 } else {
                     if (result instanceof String) {
                         responseParams=result.toString();
                         log.info("完成 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}],返回[{}]",
-                                token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, request.getHeader("user-agent"), request.getRequestURI(), request.getMethod(), MacInfoUtil.getMac(), RequestUtil.getRemoteIp(request),
+                                token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
                                 requestParams, responseParams);
                     } else {
                         responseParams=JSON.toJSONStringWithDateFormat(result, "yyyy-MM-dd HH:mm:ss,S", SerializerFeature.WriteMapNullValue);
                         log.info("完成 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}],返回[{}]",
-                                token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, request.getHeader("user-agent"), request.getRequestURI(), request.getMethod(), MacInfoUtil.getMac(), RequestUtil.getRemoteIp(request),
+                                token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
                                 requestParams, responseParams);
                     }
                 }
@@ -144,7 +156,7 @@ public class ActionLogAspect {
                         public Object call() throws Exception {
                             String sql="INSERT INTO `sys_action_log`(`token`,`trace`,`project`,`moudle`,`action_type`,`type`,`request_uri`,`class_name`,`method_name`,`user_agent`,`remote_ip`,`request_method`,`request_params`,`response_params`,`request_mac`,`exception`,`action_thread`,`action_start_time`,`action_end_time`,`action_time`,`create_time`)\n" +
                                     "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-                            return jdbcTemplate.update(sql,token,trace,actionLogProperties.getProject(),moudle,actionType,"1",request.getRequestURI(),className,methodName,request.getHeader("user-agent"),RequestUtil.getRemoteIp(request),request.getMethod(),requestParams,responseParams
+                            return jdbcTemplate.update(sql,token,trace,actionLogProperties.getProject(),moudle,actionType,"1",requestUrl,className,methodName,userAgent,remoteIp,requestMethod,requestParams,responseParams
                                     , MacInfoUtil.getMac(),null,threadName,new Date(beginTime),new Date(endTime),endTime-beginTime,new Date())>0;
                         }
                     });
@@ -157,18 +169,18 @@ public class ActionLogAspect {
                 } else {
                     if (ObjectUtils.isEmpty(result)) {
                         log.info("完成 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}],返回[{}]",
-                                token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, request.getHeader("user-agent"), request.getRequestURI(), request.getMethod(), MacInfoUtil.getMac(), RequestUtil.getRemoteIp(request),
+                                token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
                                 requestParams, result);
                     } else {
                         if (result instanceof String) {
                             responseParams=result.toString();
                             log.info("完成 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}],返回[{}]",
-                                    token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, request.getHeader("user-agent"), request.getRequestURI(), request.getMethod(), MacInfoUtil.getMac(), RequestUtil.getRemoteIp(request),
+                                    token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
                                     requestParams, responseParams);
                         } else {
                             responseParams=JSON.toJSONStringWithDateFormat(result, "yyyy-MM-dd HH:mm:ss,S", SerializerFeature.WriteMapNullValue);
                             log.info("完成 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}],返回[{}]",
-                                    token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, request.getHeader("user-agent"), request.getRequestURI(), request.getMethod(), MacInfoUtil.getMac(), RequestUtil.getRemoteIp(request),
+                                    token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
                                     requestParams, responseParams);
                         }
                     }
@@ -195,7 +207,7 @@ public class ActionLogAspect {
                             }
                             String sql="INSERT INTO `sys_action_log`(`token`,`trace`,`project`,`moudle`,`action_type`,`type`,`request_uri`,`class_name`,`method_name`,`user_agent`,`remote_ip`,`request_method`,`request_params`,`response_params`,`request_mac`,`exception`,`action_thread`,`action_start_time`,`action_end_time`,`action_time`,`create_time`)\n" +
                                     "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-                            return jdbcTemplate.update(sql,token,trace,actionLogProperties.getProject(),moudle,actionType,"0",request.getRequestURI(),className,methodName,request.getHeader("user-agent"),RequestUtil.getRemoteIp(request),request.getMethod(),requestParams,responseParams
+                            return jdbcTemplate.update(sql,token,trace,actionLogProperties.getProject(),moudle,actionType,"0",requestUrl,className,methodName,userAgent,remoteIp,requestMethod,requestParams,responseParams
                                     , MacInfoUtil.getMac(),errStack.toString(),threadName,new Date(beginTime),new Date(),System.currentTimeMillis()-beginTime,new Date())>0;
                         }
                     });
