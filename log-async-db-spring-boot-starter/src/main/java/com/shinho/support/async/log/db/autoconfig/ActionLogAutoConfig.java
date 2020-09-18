@@ -4,6 +4,7 @@ import com.shinho.support.async.log.db.properties.ActionLogProperties;
 import com.shinho.support.async.log.db.util.MdcExecutor;
 import org.apache.commons.collections.CollectionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -13,6 +14,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -35,21 +38,52 @@ import java.util.concurrent.ThreadPoolExecutor;
 @ConditionalOnProperty(prefix="action.async.log",name = "enable", havingValue = "true")
 public class ActionLogAutoConfig {
 
-    @Resource
-    private DataSource dataSource;
 
     @Autowired
     private ActionLogProperties actionLogProperties;
 
+
     /**
-     * 框架没有使用jdbcTemplate时，
-     * 采用如下方式
+     * 实例化日志工具
      * @return jdbcTemplate
      */
     @Bean
+    @Order(Ordered.HIGHEST_PRECEDENCE)
     @ConditionalOnMissingBean(JdbcTemplate.class)
-    public JdbcTemplate jdbcTemplate(){
-        JdbcTemplate jdbcTemplate=new JdbcTemplate(dataSource);
+    public JdbcTemplate jdbcTemplate(@Qualifier(value="dataSource") DataSource dataSource){
+        return new JdbcTemplate(dataSource);
+    }
+
+    /**
+     * 实例化日志线程池
+     * @return mdc线程池
+     */
+    @Bean(name = "mdcExecutor")
+    @ConditionalOnMissingBean(MdcExecutor.class)
+    @Order(Ordered.HIGHEST_PRECEDENCE)
+    @Primary
+    public TaskExecutor mdcExecutor(){
+        MdcExecutor executor = new MdcExecutor();
+        executor.setCorePoolSize(actionLogProperties.getTask().getMin());// 线程池维护线程的最少数量
+        executor.setMaxPoolSize(actionLogProperties.getTask().getMax());// 线程池维护线程的最大数量
+        executor.setQueueCapacity(actionLogProperties.getTask().getQueue());//缓存队列
+        executor.setThreadNamePrefix(actionLogProperties.getTask().getPrefix());// 线程池前缀
+        // rejection-policy：当pool已经达到max size的时候，如何处理新任务
+        // CALLER_RUNS：不在新线程中执行任务，而是由调用者所在的线程来执行
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy()); // 对拒绝task的处理策略
+        executor.setKeepAliveSeconds(actionLogProperties.getTask().getKeep());// 允许的空闲时间
+        executor.initialize();
+        return executor;
+    }
+
+    /**
+     * 初始化日志处理
+     * @param jdbcTemplate
+     * @return actionLogAspect
+     */
+    @Bean
+    @ConditionalOnBean({JdbcTemplate.class,TaskExecutor.class})
+    public ActionLogAspect actionLogAspect(@Autowired JdbcTemplate jdbcTemplate){
         if(actionLogProperties.isDbEnable()){
             //判断是否存在sys_action_log表，不存在则创建
             String sql="select count(table_name) total from information_schema.tables  where table_schema = (select database()) and table_name = 'sys_action_log'";
@@ -92,34 +126,7 @@ public class ActionLogAutoConfig {
                 }
             }
         }
-        return jdbcTemplate;
-    }
-
-    @Bean
-    @ConditionalOnBean({JdbcTemplate.class})
-    public ActionLogAspect actionLogAspect(){
         return new ActionLogAspect();
     }
 
-
-    /**
-     * 自定义线程池
-     * @return mdc线程池
-     */
-    @Bean(name = "mdcExecutor")
-    @ConditionalOnMissingBean(MdcExecutor.class)
-    @Primary
-    public TaskExecutor mdcExecutor(){
-        MdcExecutor executor = new MdcExecutor();
-        executor.setCorePoolSize(20);// 线程池维护线程的最少数量
-        executor.setMaxPoolSize(100);// 线程池维护线程的最大数量
-        executor.setQueueCapacity(120);//缓存队列
-        executor.setThreadNamePrefix("async-mdc-task-executor-");// 线程池前缀
-        // rejection-policy：当pool已经达到max size的时候，如何处理新任务
-        // CALLER_RUNS：不在新线程中执行任务，而是由调用者所在的线程来执行
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy()); // 对拒绝task的处理策略
-        executor.setKeepAliveSeconds(60);// 允许的空闲时间
-        executor.initialize();
-        return executor;
-    }
 }

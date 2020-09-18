@@ -44,4 +44,43 @@ public class ActionLogProperties {
      * 存储天数,默认存储最近7天
      */
     private long storage=7;
+
+    /**
+     * 日志线程池
+     */
+    private Task task=new Task();
+    /**
+     * 日志线程池配置
+     */
+    @Data
+    public class Task{
+
+        /**
+         * 日志线程池，最小线程数量
+         */
+        private int min=20;
+
+        /**
+         * 日志线程池，最大线程数量
+         */
+        private int max=100;
+
+        /**
+         * 日志线程池，队列线程数量
+         */
+        private int queue=120;
+
+        /**
+         * 日志线程池，线程名称前缀
+         */
+        private String prefix="async-mdc-task-executor-";
+
+        /**
+         * 日志线程池，允许的空闲时间
+         */
+        private int keep=60;
+
+    }
+
+
 }

@@ -24,11 +24,18 @@ Maven
 action:
   async:
     log:
-      enable: true  #是否开启
+      enable: true  #是否开启插件
       dbEnable: true #是否存储数据库
       project: ${spring.application.name} #项目名称
       trace: traceId #全局链路trace的key
-      token: x-amz-security-token 用户令牌的key
+      token: x-amz-security-token #用户令牌的key
+      storage: 30 #存储天数，默认7天
+      task:  #日志线程池
+        prefix: tesk-task #线程池前缀 
+        keep: 65 #空闲时间
+        min: 10 #最小数量
+        max: 50 #最大数量
+        queue: 100 #队列线程池数量
 ```
 ### 3.Java代码使用
 
