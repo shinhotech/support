@@ -16,8 +16,8 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.NamedThreadLocal;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.http.HttpStatus;
@@ -44,8 +44,6 @@ import java.util.concurrent.FutureTask;
 @Slf4j
 public class ActionLogAspect {
 
-    private static  final ThreadLocal<Long> startTimeThreadLocal = new NamedThreadLocal<Long>("ThreadLocal StartTime");
-
     private String trace="";//微服务请求链路编号
 
     private String token="";//微服务用户操作token
@@ -59,6 +57,18 @@ public class ActionLogAspect {
     private String remoteIp="";//请求IP
 
     private String requestMethod="";//请求方式
+
+    private String className="";//请求类名
+
+    private String methodName="";//请求方法名
+
+    private String threadName="";//线程名称
+
+    private String requestParams="";//请求参数
+
+    private Date beginTime=null;//开始时间
+
+    private Date endTime=null;//结束时间
 
     @Autowired
     ActionLogProperties actionLogProperties;
@@ -99,8 +109,11 @@ public class ActionLogAspect {
         userAgent=request.getHeader("user-agent");//用户代理
         remoteIp=RequestUtil.getRemoteIp(request);//请求的IP
         requestMethod=request.getMethod();//请求方法
-        String className = pjp.getTarget().getClass().getName();//类名
-        String methodName = method.getName();//方法名
+        //将trace和token放入MDC中，供子线程获取数据
+        MDC.put(actionLogProperties.getTrace(), trace);
+        MDC.put(actionLogProperties.getToken(), token);
+        className = pjp.getTarget().getClass().getName();//类名
+        methodName = method.getName();//方法名
         Object[] params = pjp.getArgs();//参数列表
         List<Object> args = new ArrayList<>();
         for (int i = 0; i < params.length; i++) {
@@ -110,27 +123,25 @@ public class ActionLogAspect {
                 args.add(params[i]);
             }
         }
-        String threadName=Thread.currentThread().getName();//当前线程名称
-        String requestParams=ObjectUtils.isEmpty(args)?"":JSON.toJSONStringWithDateFormat(args, "yyyy-MM-dd HH:mm:ss,S", SerializerFeature.WriteMapNullValue);
+        threadName=Thread.currentThread().getName();//当前线程名称
+        requestParams=ObjectUtils.isEmpty(args)?"":JSON.toJSONStringWithDateFormat(args, "yyyy-MM-dd HH:mm:ss,S", SerializerFeature.WriteMapNullValue);
         //开启注解
         if (!ObjectUtils.isEmpty(actionLog) && actionLogProperties.isEnable()) {
             //操作模块
             String moudle = actionLog.moudle();
             //操作类型
             String actionType = actionLog.actionType();
-            /*线程池绑定log打印时间*/
-            long beginTime = System.currentTimeMillis();//1、开始时间
-            startTimeThreadLocal.set(beginTime);        //线程绑定变量（该数据只有当前请求的线程可见）
+            //开始时间
+            beginTime=new Date();
             log.info("开始 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}]",
                     token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
                     requestParams);
             Object result = null;
             try {
-                //删除线程变量中的数据，防止内存泄漏
-                startTimeThreadLocal.remove();
                 //数据库记录日志
                 result = pjp.proceed();// result的值就是被拦截方法的返回值
-                long endTime = System.currentTimeMillis();    //2、结束时间
+                //结束时间
+                endTime=new Date();
                 if (ObjectUtils.isEmpty(result)) {
                     log.info("完成 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}],返回[{}]",
                             token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
@@ -157,7 +168,7 @@ public class ActionLogAspect {
                             String sql="INSERT INTO `sys_action_log`(`token`,`trace`,`project`,`moudle`,`action_type`,`type`,`request_uri`,`class_name`,`method_name`,`user_agent`,`remote_ip`,`request_method`,`request_params`,`response_params`,`request_mac`,`exception`,`action_thread`,`action_start_time`,`action_end_time`,`action_time`,`create_time`)\n" +
                                     "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
                             return jdbcTemplate.update(sql,token,trace,actionLogProperties.getProject(),moudle,actionType,"1",requestUrl,className,methodName,userAgent,remoteIp,requestMethod,requestParams,responseParams
-                                    , MacInfoUtil.getMac(),null,threadName,new Date(beginTime),new Date(endTime),endTime-beginTime,new Date())>0;
+                                    , MacInfoUtil.getMac(),null,threadName,beginTime,endTime,endTime.getTime()-beginTime.getTime(),new Date())>0;
                         }
                     });
                     /**
@@ -208,7 +219,7 @@ public class ActionLogAspect {
                             String sql="INSERT INTO `sys_action_log`(`token`,`trace`,`project`,`moudle`,`action_type`,`type`,`request_uri`,`class_name`,`method_name`,`user_agent`,`remote_ip`,`request_method`,`request_params`,`response_params`,`request_mac`,`exception`,`action_thread`,`action_start_time`,`action_end_time`,`action_time`,`create_time`)\n" +
                                     "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
                             return jdbcTemplate.update(sql,token,trace,actionLogProperties.getProject(),moudle,actionType,"0",requestUrl,className,methodName,userAgent,remoteIp,requestMethod,requestParams,responseParams
-                                    , MacInfoUtil.getMac(),errStack.toString(),threadName,new Date(beginTime),new Date(),System.currentTimeMillis()-beginTime,new Date())>0;
+                                    , MacInfoUtil.getMac(),errStack.toString(),threadName,beginTime,endTime,endTime.getTime()-beginTime.getTime(),new Date())>0;
                         }
                     });
                     mdcExecutor.execute(RunnableWrapper.of(task));    //为提升访问速率, 日志记录采用异步的方式进行.
