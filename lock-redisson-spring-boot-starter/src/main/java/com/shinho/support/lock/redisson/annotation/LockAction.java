@@ -16,10 +16,10 @@ public @interface LockAction {
 
 	/** 锁的资源，key。支持spring El表达式，如果不赋值，默认取类名+方法名*/
 	@AliasFor("key")
-	String value() default "'default'";
+	String value() default "";
 
 	@AliasFor("value")
-	String key() default "'default'";
+	String key() default "";
 
 	/** 获取锁等待时间，默认60秒*/
 	long waitTime() default  60 * 1000L;
