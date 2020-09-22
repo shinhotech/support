@@ -66,6 +66,8 @@ public class ActionLogAspect {
 
     private String requestParams="";//请求参数
 
+    private String requestMac="";//请求的mac
+
     private Date beginTime=null;//开始时间
 
     private Date endTime=null;//结束时间
@@ -114,6 +116,7 @@ public class ActionLogAspect {
         MDC.put(actionLogProperties.getToken(), token);
         className = pjp.getTarget().getClass().getName();//类名
         methodName = method.getName();//方法名
+        requestMac=MacInfoUtil.getMac();//电脑mac
         Object[] params = pjp.getArgs();//参数列表
         List<Object> args = new ArrayList<>();
         for (int i = 0; i < params.length; i++) {
@@ -142,22 +145,16 @@ public class ActionLogAspect {
                 result = pjp.proceed();// result的值就是被拦截方法的返回值
                 //结束时间
                 endTime=new Date();
+                //日志记录文件
                 if (ObjectUtils.isEmpty(result)) {
                     log.info("完成 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}],返回[{}]",
                             token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
                             requestParams, result);
                 } else {
-                    if (result instanceof String) {
-                        responseParams=result.toString();
-                        log.info("完成 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}],返回[{}]",
-                                token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
-                                requestParams, responseParams);
-                    } else {
-                        responseParams=JSON.toJSONStringWithDateFormat(result, "yyyy-MM-dd HH:mm:ss,S", SerializerFeature.WriteMapNullValue);
-                        log.info("完成 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}],返回[{}]",
-                                token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
-                                requestParams, responseParams);
-                    }
+                    responseParams=result instanceof String?result.toString():JSON.toJSONStringWithDateFormat(result, "yyyy-MM-dd HH:mm:ss,S", SerializerFeature.WriteMapNullValue);
+                    log.info("完成 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}],返回[{}]",
+                            token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
+                            requestParams, responseParams);
                 }
                 //开启日志记录数据库,启用线程池
                 if (actionLogProperties.isDbEnable()&&actionLog.isSaveDb()) {
@@ -168,7 +165,7 @@ public class ActionLogAspect {
                             String sql="INSERT INTO `sys_action_log`(`token`,`trace`,`project`,`moudle`,`action_type`,`type`,`request_uri`,`class_name`,`method_name`,`user_agent`,`remote_ip`,`request_method`,`request_params`,`response_params`,`request_mac`,`exception`,`action_thread`,`action_start_time`,`action_end_time`,`action_time`,`create_time`)\n" +
                                     "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
                             return jdbcTemplate.update(sql,token,trace,actionLogProperties.getProject(),moudle,actionType,"1",requestUrl,className,methodName,userAgent,remoteIp,requestMethod,requestParams,responseParams
-                                    , MacInfoUtil.getMac(),null,threadName,beginTime,endTime,endTime.getTime()-beginTime.getTime(),new Date())>0;
+                                    , requestMac,null,threadName,beginTime,endTime,endTime.getTime()-beginTime.getTime(),new Date())>0;
                         }
                     });
                     /**
@@ -177,32 +174,16 @@ public class ActionLogAspect {
                      */
                     mdcExecutor.execute(RunnableWrapper.of(task));    //为提升访问速率, 日志记录采用异步的方式进行.
                     //不开启日志记录数据库，只记录文件
-                } else {
-                    if (ObjectUtils.isEmpty(result)) {
-                        log.info("完成 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}],返回[{}]",
-                                token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
-                                requestParams, result);
-                    } else {
-                        if (result instanceof String) {
-                            responseParams=result.toString();
-                            log.info("完成 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}],返回[{}]",
-                                    token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
-                                    requestParams, responseParams);
-                        } else {
-                            responseParams=JSON.toJSONStringWithDateFormat(result, "yyyy-MM-dd HH:mm:ss,S", SerializerFeature.WriteMapNullValue);
-                            log.info("完成 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}],返回[{}]",
-                                    token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
-                                    requestParams, responseParams);
-                        }
-                    }
                 }
                 return result;
             } catch (Throwable e) {
                 e.printStackTrace();
                 log.error("ActionLogAspect with exception occurred：" + e);
+
                 /*日志写入数据库,子线程抛出异常，也可以在子线程内部try-catch然后再把异常抛出，主线程处理
-                 * 开启数据库异常日志时，记录数据库日志，抛出异常让全局异常处理
+                 * 开启数据库异常日志时，记录数据库日志，抛出异常让全局异常处理,
                  */
+                endTime=ObjectUtils.isEmpty(endTime)?new Date():endTime;//结束时间
                 if (actionLogProperties.isDbEnable()&&actionLog.isSaveDb()) {
                     FutureTask<Object> task = new FutureTask<Object>(new Callable<Object>() {
                         @Override
@@ -219,7 +200,7 @@ public class ActionLogAspect {
                             String sql="INSERT INTO `sys_action_log`(`token`,`trace`,`project`,`moudle`,`action_type`,`type`,`request_uri`,`class_name`,`method_name`,`user_agent`,`remote_ip`,`request_method`,`request_params`,`response_params`,`request_mac`,`exception`,`action_thread`,`action_start_time`,`action_end_time`,`action_time`,`create_time`)\n" +
                                     "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
                             return jdbcTemplate.update(sql,token,trace,actionLogProperties.getProject(),moudle,actionType,"0",requestUrl,className,methodName,userAgent,remoteIp,requestMethod,requestParams,responseParams
-                                    , MacInfoUtil.getMac(),errStack.toString(),threadName,beginTime,endTime,endTime.getTime()-beginTime.getTime(),new Date())>0;
+                                    , requestMac,errStack.toString(),threadName,beginTime,endTime,endTime.getTime()-beginTime.getTime(),new Date())>0;
                         }
                     });
                     mdcExecutor.execute(RunnableWrapper.of(task));    //为提升访问速率, 日志记录采用异步的方式进行.
