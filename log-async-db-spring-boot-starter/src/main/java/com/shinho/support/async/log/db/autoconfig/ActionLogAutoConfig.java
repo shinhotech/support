@@ -1,12 +1,15 @@
 package com.shinho.support.async.log.db.autoconfig;
+
 import com.shinho.support.async.log.db.aspect.ActionLogAspect;
 import com.shinho.support.async.log.db.properties.ActionLogProperties;
+import com.shinho.support.async.log.db.util.LogEvictTask;
 import com.shinho.support.async.log.db.util.MdcExecutor;
 import org.apache.commons.collections.CollectionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
@@ -19,8 +22,8 @@ import org.springframework.core.annotation.Order;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
-import javax.annotation.Resource;
 import javax.sql.DataSource;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +35,7 @@ import java.util.concurrent.ThreadPoolExecutor;
  */
 @Configuration
 @EnableAsync
+@EnableScheduling
 @AutoConfigureAfter(value = {DataSourceAutoConfiguration.class})
 @ConditionalOnBean(DataSource.class)
 @EnableConfigurationProperties(ActionLogProperties.class)
@@ -118,7 +122,7 @@ public class ActionLogAutoConfig {
                             "  KEY `sys_log_trace` (`trace`) USING BTREE\n" +
                             ") ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8 COLLATE=utf8_bin COMMENT='用户日志表';";
                     jdbcTemplate.execute(createSql);
-                    //存在表时，清除超过指定间隔天数的数据,默认存储时间7天
+                    //存在表时，清除超过指定间隔天数的数据,默认存储时间30天
                 }else{
                     long storage=0-actionLogProperties.getStorage();
                     String delSql="delete from sys_action_log where create_time<date_add(now(), interval "+storage+" day)";
@@ -129,4 +133,17 @@ public class ActionLogAutoConfig {
         return new ActionLogAspect();
     }
 
+    /**
+     * 实例化日志清理类
+     * 默认每月1号执行
+     * @param jdbcTemplate 数据库操作实例
+     * @return logEvictTask
+     */
+    @Bean
+    @ConditionalOnBean({JdbcTemplate.class})
+    @ConditionalOnMissingBean(LogEvictTask.class)
+    @ConditionalOnExpression("${action.async.log.job.enable:true}")
+    public LogEvictTask logEvictTask(@Autowired JdbcTemplate jdbcTemplate){
+        return new LogEvictTask(jdbcTemplate,actionLogProperties);
+    }
 }

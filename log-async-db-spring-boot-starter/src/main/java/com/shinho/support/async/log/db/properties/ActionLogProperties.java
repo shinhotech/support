@@ -41,9 +41,31 @@ public class ActionLogProperties {
     private String token="X_AMZ_SECURITY_TOKEN";
 
     /**
-     * 存储天数,默认存储最近7天
+     * 存储天数,默认存储最近30天
      */
-    private long storage=7;
+    private long storage=30;
+
+    /**
+     * 日志清理任务
+     */
+    private Job job=new Job();
+
+    /**
+     * 日志清理任务
+     */
+    @Data
+    public class Job{
+
+        /**
+         * 是否开启任务
+         */
+        private boolean enable=true;
+
+        /**
+         * 清理日志任务表达式,每月1执行一次
+         */
+        private String cron="0 0 0 1 * ?";
+    }
 
     /**
      * 日志线程池
@@ -81,6 +103,5 @@ public class ActionLogProperties {
         private int keep=60;
 
     }
-
 
 }
