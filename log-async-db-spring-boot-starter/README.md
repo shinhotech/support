@@ -47,7 +47,6 @@ action:
           * 记录异常日志
           */
          @GetMapping(value = "/testRateLimiter")
-         @RateLimiter(limit=1, timeout=1,unit = TimeUnit.MINUTES)
          @ResponseBody
          @ActionLog(moudle="用户模块",actionType = "获取流量",isSaveDb = true)
          public Map<String,Object> testRateLimiter(){
@@ -66,7 +65,6 @@ action:
          */
         @PostMapping("/testCache")
         @ResponseBody
-        @Cacheable(value="view",keyGenerator="keyGenerator")
         @ActionLog(moudle="字典数据",actionType = "系统数据",isSaveDb = true)
         public String testCache(@RequestBody TUser user){
             System.err.println("进入testCache方法，本次传入参数:name="+user.getUsername()+",age="+user.getAge()+"\t 当前线程:"+Thread.currentThread().getName());
