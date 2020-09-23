@@ -177,9 +177,7 @@ public class ActionLogAspect {
                 }
                 return result;
             } catch (Throwable e) {
-                e.printStackTrace();
                 log.error("ActionLogAspect with exception occurred：" + e);
-
                 /*日志写入数据库,子线程抛出异常，也可以在子线程内部try-catch然后再把异常抛出，主线程处理
                  * 开启数据库异常日志时，记录数据库日志，抛出异常让全局异常处理,
                  */
