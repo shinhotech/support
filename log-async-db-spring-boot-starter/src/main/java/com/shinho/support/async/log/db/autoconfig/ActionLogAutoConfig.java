@@ -2,8 +2,8 @@ package com.shinho.support.async.log.db.autoconfig;
 
 import com.shinho.support.async.log.db.aspect.ActionLogAspect;
 import com.shinho.support.async.log.db.properties.ActionLogProperties;
-import com.shinho.support.async.log.db.util.LogEvictTask;
 import com.shinho.support.async.log.db.util.MdcExecutor;
+import lombok.AllArgsConstructor;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.skywalking.apm.toolkit.trace.RunnableWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,7 +24,7 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
-
+import org.springframework.scheduling.annotation.Scheduled;
 import javax.sql.DataSource;
 import java.util.List;
 import java.util.Map;
@@ -143,7 +143,7 @@ public class ActionLogAutoConfig {
     }
 
     /**
-     * 实例化日志清理类
+     * 配置内置日志清理任务
      * 默认14天执行一次
      * @param jdbcTemplate 数据库操作实例
      * @return logEvictTask
@@ -154,6 +154,44 @@ public class ActionLogAutoConfig {
     @ConditionalOnExpression("${action.async.log.job.enable:true}")
     public LogEvictTask logEvictTask(@Autowired JdbcTemplate jdbcTemplate,@Autowired TaskExecutor mdcExecutor){
         return new LogEvictTask(jdbcTemplate,actionLogProperties,mdcExecutor);
+    }
+
+    /**
+     * 定义内置日志清理任务
+     * 不允许外部直接访问，
+     * 仅满足条件时实例化
+     */
+    @AllArgsConstructor
+    private class LogEvictTask {
+        private JdbcTemplate jdbcTemplate;
+        private ActionLogProperties actionLogProperties;
+        private TaskExecutor mdcExecutor;
+
+        /**
+         * 定时清理日志
+         * 配置异步执行
+         * 默认每月1号执行
+         */
+        @Scheduled(cron = "${action.async.log.job.cron:0 0 0 1 * ?}")
+        private void clean() {
+            if (actionLogProperties.isDbEnable()) {
+                mdcExecutor.execute(RunnableWrapper.of(new FutureTask<Object>(new Callable<Object>() {
+                            @Override
+                            public Object call() throws Exception {
+                                //判断是否存在sys_action_log表
+                                List<Map<String, Object>> result = jdbcTemplate.queryForList("select count(table_name) total from information_schema.tables  where table_schema = (select database()) and table_name = 'sys_action_log'");
+                                if (CollectionUtils.isNotEmpty(result) && !result.get(0).get("total").toString().equals("0")) {
+                                    //存在表时，清理日志
+                                    long storage = 0 - actionLogProperties.getStorage();
+                                    String delSql = "delete from sys_action_log where create_time<date_add(now(), interval " + storage + " day)";
+                                    jdbcTemplate.execute(delSql);
+                                };
+                                return "ok";
+                            }
+                        })
+                ));
+            }
+        }
     }
 
 }
