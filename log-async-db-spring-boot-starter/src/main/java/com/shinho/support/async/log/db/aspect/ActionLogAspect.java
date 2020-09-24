@@ -134,14 +134,13 @@ public class ActionLogAspect {
             String moudle = actionLog.moudle();
             //操作类型
             String actionType = actionLog.actionType();
-            //开始时间
-            beginTime=new Date();
             log.info("开始 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}]",
                     token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
                     requestParams);
             Object result = null;
+            //开始时间
+            beginTime=new Date();
             try {
-                //数据库记录日志
                 result = pjp.proceed();// result的值就是被拦截方法的返回值
                 //结束时间
                 endTime=new Date();
@@ -177,11 +176,11 @@ public class ActionLogAspect {
                 }
                 return result;
             } catch (Throwable e) {
+                endTime=new Date();//结束时间
                 log.error("ActionLogAspect with exception occurred：" + e);
                 /*日志写入数据库,子线程抛出异常，也可以在子线程内部try-catch然后再把异常抛出，主线程处理
                  * 开启数据库异常日志时，记录数据库日志，抛出异常让全局异常处理,
                  */
-                endTime=ObjectUtils.isEmpty(endTime)?new Date():endTime;//结束时间
                 if (actionLogProperties.isDbEnable()&&actionLog.isSaveDb()) {
                     FutureTask<Object> task = new FutureTask<Object>(new Callable<Object>() {
                         @Override

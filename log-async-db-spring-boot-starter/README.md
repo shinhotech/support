@@ -30,15 +30,15 @@ action:
       trace: traceId #全局链路trace的key
       token: x-amz-security-token #用户令牌的key
       storage: 30 #存储天数，默认30天
-      job:
+      job: #日志定时任务
         enable: true #是否开启日志任务
         cron: 0 0/1 * * * ? #定时任务，清理超过30天日志，默认每月1号执行
       task:  #日志线程池
         prefix: tesk-task #线程池前缀 
         keep: 65 #空闲时间
-        min: 10 #最小数量
+        core: 10 #核心数量
         max: 50 #最大数量
-        queue: 100 #队列线程池数量
+        queue: 100 #缓冲队列
 ```
 ### 3.Java代码使用
 

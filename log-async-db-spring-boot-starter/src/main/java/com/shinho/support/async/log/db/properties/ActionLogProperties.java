@@ -78,19 +78,19 @@ public class ActionLogProperties {
     public class Task{
 
         /**
-         * 日志线程池，最小线程数量
+         * 日志线程池，核心线程数
          */
-        private int min=20;
+        private int core=20;
 
         /**
-         * 日志线程池，最大线程数量
+         * 日志线程池，最大线程数
          */
-        private int max=100;
+        private int max=40;
 
         /**
-         * 日志线程池，队列线程数量
+         * 日志线程池，缓冲队列数
          */
-        private int queue=120;
+        private int queue=200;
 
         /**
          * 日志线程池，线程名称前缀
@@ -103,5 +103,6 @@ public class ActionLogProperties {
         private int keep=60;
 
     }
+
 
 }
