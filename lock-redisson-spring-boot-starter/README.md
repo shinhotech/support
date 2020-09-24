@@ -12,7 +12,7 @@ Maven
 
 ```xml
     <dependency>
-        <groupId>com.shinho</groupId>````
+        <groupId>com.shinho</groupId>
         <artifactId>lock-redisson-spring-boot-starter</artifactId>
         <version>1.0.0.RELEASE</version>
     </dependency>
