@@ -57,7 +57,7 @@ public class ActionLogAutoConfig {
     @Bean
     @Order(Ordered.HIGHEST_PRECEDENCE)
     @ConditionalOnMissingBean(JdbcTemplate.class)
-    public JdbcTemplate jdbcTemplate(@Qualifier("dataSource") DataSource dataSource){
+    public JdbcTemplate jdbcTemplate(@Autowired DataSource dataSource){
         return new JdbcTemplate(dataSource);
     }
 
