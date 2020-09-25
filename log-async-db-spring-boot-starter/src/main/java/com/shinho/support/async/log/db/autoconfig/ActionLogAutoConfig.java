@@ -54,10 +54,24 @@ public class ActionLogAutoConfig {
      * 实例化日志工具
      * @return jdbcTemplate
      */
-    @Bean
+    @Bean(name="jdbcTemplate")
     @Order(Ordered.HIGHEST_PRECEDENCE)
     @ConditionalOnMissingBean(JdbcTemplate.class)
+    @ConditionalOnExpression("!'c4i-mob-app,c4i-mob-jobs'.contains('${action.async.log.project}')")
     public JdbcTemplate jdbcTemplate(@Autowired DataSource dataSource){
+        return new JdbcTemplate(dataSource);
+    }
+
+    /**
+     * 实例化日志工具
+     * C4I JOB和APP 工程注入对象不同
+     * @return jdbcTemplate
+     */
+    @Bean(name="jdbcTemplate")
+    @Order(Ordered.HIGHEST_PRECEDENCE)
+    @ConditionalOnMissingBean(JdbcTemplate.class)
+    @ConditionalOnExpression("'c4i-mob-app,c4i-mob-jobs'.contains('${action.async.log.project}')")
+    public JdbcTemplate joBJdbcTemplate(@Qualifier("master") DataSource dataSource){
         return new JdbcTemplate(dataSource);
     }
 

@@ -18,6 +18,13 @@
         <java.version>1.8</java.version>
         <maven.build.timestamp.format>yyyy-MM-dd HH</maven.build.timestamp.format>
     </properties>
+    <developers>
+        <developer>
+            <name>fuweidi</name>
+            <email>fuweidi@shinhofood.com</email>
+            <url>https://github.com/shinhotech/support</url>
+        </developer>
+    </developers>
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -127,5 +134,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>
