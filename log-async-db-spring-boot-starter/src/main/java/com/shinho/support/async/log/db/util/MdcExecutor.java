@@ -2,6 +2,7 @@ package com.shinho.support.async.log.db.util;
 
 import org.slf4j.MDC;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.util.ObjectUtils;
 
 import java.util.Map;
 
@@ -28,8 +29,10 @@ public class MdcExecutor extends ThreadPoolTaskExecutor {
      * 父线程MDC内容
      */
     private void run(Runnable runnable, Map<String, String> context) {
-        // 将父线程的MDC内容传给子线程
-        MDC.setContextMap(context);
+        if(!ObjectUtils.isEmpty(context)){
+            // 将父线程的MDC内容传给子线程
+            MDC.setContextMap(context);
+        }
         try {
             // 执行异步操作
             runnable.run();
