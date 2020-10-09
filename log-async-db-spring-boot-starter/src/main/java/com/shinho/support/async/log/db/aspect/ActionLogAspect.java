@@ -1,7 +1,6 @@
 package com.shinho.support.async.log.db.aspect;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.serializer.SerializerFeature;
+import com.google.gson.Gson;
 import com.shinho.support.async.log.db.annotation.ActionLog;
 import com.shinho.support.async.log.db.properties.ActionLogProperties;
 import com.shinho.support.async.log.db.util.MacInfoUtil;
@@ -25,14 +24,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
-import org.springframework.web.multipart.MultipartFile;
 
-import javax.servlet.ServletRequest;
 import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.FutureTask;
 
@@ -118,16 +113,13 @@ public class ActionLogAspect {
         methodName = method.getName();//方法名
         requestMac=MacInfoUtil.getMac();//电脑mac
         Object[] params = pjp.getArgs();//参数列表
-        List<Object> args = new ArrayList<>();
-        for (int i = 0; i < params.length; i++) {
-            if (params[i] instanceof ServletRequest || params[i] instanceof MultipartFile) {
-                continue;
-            } else {
-                args.add(params[i]);
-            }
+        if (requestMethod.equals("GET")) {
+            requestParams=request.getQueryString();
+        }else{
+            //阿里的JSON针对文件格式，存在问题，这里使用谷歌的工具
+            requestParams=!ObjectUtils.isEmpty(params)?new Gson().toJson(params):"";
         }
         threadName=Thread.currentThread().getName();//当前线程名称
-        requestParams=ObjectUtils.isEmpty(args)?"":JSON.toJSONStringWithDateFormat(args, "yyyy-MM-dd HH:mm:ss,S", SerializerFeature.WriteMapNullValue);
         //开启注解
         if (!ObjectUtils.isEmpty(actionLog) && actionLogProperties.isEnable()) {
             //操作模块
@@ -150,7 +142,7 @@ public class ActionLogAspect {
                             token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
                             requestParams, result);
                 } else {
-                    responseParams=result instanceof String?result.toString():JSON.toJSONStringWithDateFormat(result, "yyyy-MM-dd HH:mm:ss,S", SerializerFeature.WriteMapNullValue);
+                    responseParams=result instanceof String?result.toString():new Gson().toJson(result);
                     log.info("完成 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}],返回[{}]",
                             token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
                             requestParams, responseParams);
