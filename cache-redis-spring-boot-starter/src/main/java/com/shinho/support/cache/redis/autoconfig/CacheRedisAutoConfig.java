@@ -1,6 +1,9 @@
 package com.shinho.support.cache.redis.autoconfig;
 
-import com.alibaba.fastjson.JSONObject;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
 import com.shinho.support.cache.redis.properties.CacheRedisProperties;
 import com.shinho.support.cache.redis.properties.CacheRedisSingleItem;
 import com.shinho.support.cache.redis.repository.CacheRedisRepository;
@@ -9,6 +12,7 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
@@ -24,6 +28,8 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
@@ -73,7 +79,7 @@ public class CacheRedisAutoConfig extends CachingConfigurerSupport {
                 byte[] argsHash = null;
                 String cacheKey = null;
                 try {
-                    argsHash = MessageDigest.getInstance("MD5").digest(JSONObject.toJSON(keyMap).toString().getBytes("UTF-8"));
+                    argsHash = MessageDigest.getInstance("MD5").digest(new Gson().toJson(keyMap).getBytes("UTF-8"));
                     cacheKey= DigestUtils.md5Hex(argsHash).toUpperCase();//使用MD5生成位移key
                 } catch (NoSuchAlgorithmException e) {
                     e.printStackTrace();
@@ -87,6 +93,35 @@ public class CacheRedisAutoConfig extends CachingConfigurerSupport {
         };
     }
 
+    /**
+     * 二级缓存实例
+     * @param redisConnectionFactory
+     * @return redisTemplate
+     */
+    @Bean(name="mybatisCache")
+    @Order(value =Ordered.HIGHEST_PRECEDENCE)
+    @Primary
+    @ConditionalOnClass({RedisConnectionFactory.class})
+    public RedisTemplate<String, Object> mybatisCache(RedisConnectionFactory redisConnectionFactory) {
+        RedisTemplate<String, Object> redisTemplate = new RedisTemplate<>();
+        redisTemplate.setConnectionFactory(redisConnectionFactory);
+        Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer = new Jackson2JsonRedisSerializer<Object>(Object.class);
+        ObjectMapper om = new ObjectMapper();
+        om.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
+        om.enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL);
+        jackson2JsonRedisSerializer.setObjectMapper(om);
+        // 设置值（value）的序列化采用Jackson2JsonRedisSerializer。
+        redisTemplate.setValueSerializer(jackson2JsonRedisSerializer);
+        // 设置键（key）的序列化采用StringRedisSerializer。
+        redisTemplate.setKeySerializer(new StringRedisSerializer());
+        // 设置值（hashKey）的序列化采用Jackson2JsonRedisSerializer。
+        redisTemplate.setHashKeySerializer(new StringRedisSerializer());
+        // 设置键（hashValue）的序列化采用Jackson2JsonRedisSerializer。
+        redisTemplate.setHashValueSerializer(jackson2JsonRedisSerializer);
+        redisTemplate.afterPropertiesSet();
+        redisTemplate.setEnableTransactionSupport(true);//开启事务支持
+        return redisTemplate;
+    }
 
     /**
      * 自定义缓存SimpleCacheManager
