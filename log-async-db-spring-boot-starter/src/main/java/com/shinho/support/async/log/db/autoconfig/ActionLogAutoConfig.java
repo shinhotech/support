@@ -139,7 +139,7 @@ public class ActionLogAutoConfig {
                                     "  `create_time` datetime DEFAULT NULL COMMENT '创建日志时间',\n" +
                                     "  PRIMARY KEY (`id`),\n" +
                                     "  KEY `sys_log_trace` (`trace`) USING BTREE\n" +
-                                    ") ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8 COLLATE=utf8_bin COMMENT='用户日志表';";
+                                    ") ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8 COLLATE=utf8_bin COMMENT='用户日志';";
                             jdbcTemplate.execute(createSql);
                             //存在表时，清除超过指定间隔天数的数据,默认存储时间30天
                         }else{
