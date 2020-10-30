@@ -1,6 +1,7 @@
 package com.shinho.support.async.log.db.aspect;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.shinho.support.async.log.db.annotation.ActionLog;
 import com.shinho.support.async.log.db.properties.ActionLogProperties;
 import com.shinho.support.async.log.db.util.MacInfoUtil;
@@ -27,6 +28,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.Method;
+import java.net.URLDecoder;
 import java.util.Date;
 import java.util.concurrent.Callable;
 import java.util.concurrent.FutureTask;
@@ -117,7 +119,7 @@ public class ActionLogAspect {
             requestParams=request.getQueryString();
         }else{
             //阿里的JSON针对文件格式，存在问题，这里使用谷歌的工具
-            requestParams=!ObjectUtils.isEmpty(params)?new Gson().toJson(params):"";
+            requestParams=!ObjectUtils.isEmpty(params)?new GsonBuilder().serializeNulls().create().toJson(params):"";
         }
         threadName=Thread.currentThread().getName();//当前线程名称
         //开启注解
@@ -133,6 +135,8 @@ public class ActionLogAspect {
             //开始时间
             beginTime=new Date();
             try {
+                //GET参数时，URLDecoder解析
+                requestParams=requestMethod.equals("GET")&&StringUtils.isNotEmpty(requestParams)? URLDecoder.decode(requestParams,"UTF-8"):requestParams;
                 result = pjp.proceed();// result的值就是被拦截方法的返回值
                 //结束时间
                 endTime=new Date();
@@ -142,7 +146,7 @@ public class ActionLogAspect {
                             token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
                             requestParams, result);
                 } else {
-                    responseParams=result instanceof String?result.toString():new Gson().toJson(result);
+                    responseParams=result instanceof String?result.toString():new GsonBuilder().serializeNulls().create().toJson(result);
                     log.info("完成 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}],返回[{}]",
                             token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, MacInfoUtil.getMac(), remoteIp,
                             requestParams, responseParams);
