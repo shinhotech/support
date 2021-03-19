@@ -41,6 +41,11 @@ public class ActionLogProperties {
     private String token="X_AMZ_SECURITY_TOKEN";
 
     /**
+     * 微服务用户名key
+     */
+    private String user="adminLoginUserName";
+
+    /**
      * 存储天数,默认存储最近30天
      */
     private long storage=30;

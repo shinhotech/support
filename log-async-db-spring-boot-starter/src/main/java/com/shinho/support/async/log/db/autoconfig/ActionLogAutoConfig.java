@@ -102,30 +102,31 @@ public class ActionLogAutoConfig {
                         if(result.get(0).get("total").toString().equals("0")){
                             String createSql="CREATE TABLE `sys_action_log` (\n" +
                                     "  `id` bigint(64) NOT NULL AUTO_INCREMENT COMMENT '编号',\n" +
-                                    "  `token` varchar(500) COLLATE utf8_bin DEFAULT NULL COMMENT '用户令牌',\n" +
-                                    "  `trace` varchar(500) COLLATE utf8_bin DEFAULT NULL COMMENT '链路编号',\n" +
-                                    "  `project` varchar(255) COLLATE utf8_bin DEFAULT NULL COMMENT '项目名称',\n" +
-                                    "  `moudle` varchar(255) COLLATE utf8_bin DEFAULT NULL COMMENT '模块名称',\n" +
-                                    "  `action_type` varchar(255) COLLATE utf8_bin DEFAULT NULL COMMENT '操作类型',\n" +
-                                    "  `type` char(1) COLLATE utf8_bin DEFAULT '1' COMMENT '日志类型 1:正常 0：异常',\n" +
-                                    "  `request_uri` varchar(255) COLLATE utf8_bin DEFAULT NULL COMMENT '请求URI',\n" +
-                                    "  `class_name` varchar(255) COLLATE utf8_bin DEFAULT NULL COMMENT '执行类名',\n" +
-                                    "  `method_name` varchar(255) COLLATE utf8_bin DEFAULT NULL COMMENT '执行方法名称',\n" +
-                                    "  `user_agent` varchar(255) COLLATE utf8_bin DEFAULT NULL COMMENT '用户代理',\n" +
-                                    "  `remote_ip` varchar(255) COLLATE utf8_bin DEFAULT NULL COMMENT '操作IP地址',\n" +
-                                    "  `request_method` varchar(5) COLLATE utf8_bin DEFAULT NULL COMMENT '操作方式',\n" +
-                                    "  `request_params` text COLLATE utf8_bin COMMENT '请求参数',\n" +
-                                    "  `response_params` text COLLATE utf8_bin COMMENT '返回参数',\n" +
-                                    "  `request_mac` varchar(60) COLLATE utf8_bin DEFAULT NULL COMMENT '设备MAC',\n" +
-                                    "  `exception` text COLLATE utf8_bin COMMENT '异常信息',\n" +
-                                    "  `action_thread` varchar(255) COLLATE utf8_bin DEFAULT NULL COMMENT '执行线程',\n" +
+                                    "  `user` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '操作用户',\n" +
+                                    "  `token` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '用户令牌',\n" +
+                                    "  `trace` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '链路编号',\n" +
+                                    "  `project` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '项目名称',\n" +
+                                    "  `moudle` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '模块名称',\n" +
+                                    "  `action_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '操作类型',\n" +
+                                    "  `type` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT '1' COMMENT '日志类型 1:正常 0：异常',\n" +
+                                    "  `request_uri` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '请求URI',\n" +
+                                    "  `class_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '执行类名',\n" +
+                                    "  `method_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '执行方法名称',\n" +
+                                    "  `user_agent` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '用户代理',\n" +
+                                    "  `remote_ip` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '操作IP地址',\n" +
+                                    "  `request_method` varchar(5) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '操作方式',\n" +
+                                    "  `request_params` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '请求参数',\n" +
+                                    "  `response_params` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '返回参数',\n" +
+                                    "  `request_mac` varchar(60) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '设备MAC',\n" +
+                                    "  `exception` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '异常信息',\n" +
+                                    "  `action_thread` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '执行线程',\n" +
                                     "  `action_start_time` datetime DEFAULT NULL COMMENT '开始执行时刻',\n" +
                                     "  `action_end_time` datetime DEFAULT NULL COMMENT '结束执行时刻',\n" +
                                     "  `action_time` bigint(20) DEFAULT NULL COMMENT '执行耗时 单位(毫秒)',\n" +
                                     "  `create_time` datetime DEFAULT NULL COMMENT '创建日志时间',\n" +
                                     "  PRIMARY KEY (`id`),\n" +
                                     "  KEY `sys_log_trace` (`trace`) USING BTREE\n" +
-                                    ") ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8 COLLATE=utf8_bin COMMENT='用户日志';";
+                                    ") ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COMMENT='用户日志';";
                             jdbcTemplate.execute(createSql);
                             //存在表时，清除超过指定间隔天数的数据,默认存储时间30天
                         }else{

@@ -26,6 +26,8 @@ import org.springframework.util.ObjectUtils;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.Method;
 import java.net.URLDecoder;
@@ -42,6 +44,8 @@ import java.util.concurrent.FutureTask;
 public class ActionLogAspect {
 
     private String trace="";//微服务请求链路编号
+
+    private String user="";//微服务用户
 
     private String token="";//微服务用户操作token
 
@@ -100,6 +104,8 @@ public class ActionLogAspect {
          */
         trace= StringUtils.isNotEmpty(TraceContext.traceId())?TraceContext.traceId():request.getHeader(actionLogProperties.getTrace());
         trace=StringUtils.isNotEmpty(trace)?trace:"";
+        //微服务操作用户名称
+        user=ObjectUtils.isEmpty(request.getSession().getAttribute(actionLogProperties.getUser()))?"":request.getSession().getAttribute(actionLogProperties.getUser()).toString();
         /**
          * 用户请求微服务的token
          */
@@ -114,11 +120,19 @@ public class ActionLogAspect {
         className = pjp.getTarget().getClass().getName();//类名
         methodName = method.getName();//方法名
         requestMac=MacInfoUtil.getMac();//电脑mac
-        Object[] params = pjp.getArgs();//参数列表
+        Object[] args = pjp.getArgs();//参数列表
+        Object[] params=new Object[args.length];//过滤不能使用JSON序列化的参数
+        threadName=Thread.currentThread().getName();//当前线程名称
         if (requestMethod.equals("GET")) {
             requestParams=request.getQueryString();
         }else{
-            //阿里的JSON针对文件格式，存在问题，这里使用谷歌的工具
+            //阿里的JSON针对文件格式，存在问题，这里使用谷歌的工具,
+            for (int i = 0; i < args.length; i++) {
+                if (args[i] instanceof ServletRequest || args[i] instanceof ServletResponse) {
+                    continue;
+                }
+                params[i]=args[i];
+            }
             requestParams=!ObjectUtils.isEmpty(params)?new GsonBuilder().serializeNulls().create().toJson(params):"";
         }
         threadName=Thread.currentThread().getName();//当前线程名称
@@ -134,7 +148,7 @@ public class ActionLogAspect {
             try {
                 //GET参数时，URLDecoder解析
                 requestParams=requestMethod.equals("GET")&&StringUtils.isNotEmpty(requestParams)? URLDecoder.decode(requestParams,"UTF-8"):requestParams;
-                log.info("开始 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}]",
+                log.info("开始 用户[{}],令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}]",user,
                         token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, requestMac, remoteIp,
                         requestParams);
                 result = pjp.proceed();// result的值就是被拦截方法的返回值
@@ -142,12 +156,12 @@ public class ActionLogAspect {
                 endTime=new Date();
                 //日志记录文件
                 if (ObjectUtils.isEmpty(result)) {
-                    log.info("完成 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}],返回[{}]",
+                    log.info("完成 用户[{}],令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}],返回[{}]",user,
                             token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, requestMac, remoteIp,
                             requestParams, result);
                 } else {
                     responseParams=result instanceof String?result.toString():new GsonBuilder().serializeNulls().create().toJson(result);
-                    log.info("完成 令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}],返回[{}]",
+                    log.info("完成 用户[{}],令牌[{}],链路[{}],项目[{}],模块[{}],类型[{}]，类名[{}],方法名[{}],AGENT[{}],URL[{}],方式[{}],MAC[{}],IP[{}],参数[{}],返回[{}]",user,
                             token,trace,actionLogProperties.getProject(),moudle, actionType, className, methodName, userAgent, requestUrl, requestMethod, requestMac, remoteIp,
                             requestParams, responseParams);
                 }
@@ -157,9 +171,9 @@ public class ActionLogAspect {
                     FutureTask<Object> task = new FutureTask<Object>(new Callable<Object>() {
                         @Override
                         public Object call() throws Exception {
-                            String sql="INSERT INTO `sys_action_log`(`token`,`trace`,`project`,`moudle`,`action_type`,`type`,`request_uri`,`class_name`,`method_name`,`user_agent`,`remote_ip`,`request_method`,`request_params`,`response_params`,`request_mac`,`exception`,`action_thread`,`action_start_time`,`action_end_time`,`action_time`,`create_time`)\n" +
-                                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-                            return jdbcTemplate.update(sql,token,trace,actionLogProperties.getProject(),moudle,actionType,"1",requestUrl,className,methodName,userAgent,remoteIp,requestMethod,requestParams,responseParams
+                            String sql="INSERT INTO `sys_action_log`(`user`,`token`,`trace`,`project`,`moudle`,`action_type`,`type`,`request_uri`,`class_name`,`method_name`,`user_agent`,`remote_ip`,`request_method`,`request_params`,`response_params`,`request_mac`,`exception`,`action_thread`,`action_start_time`,`action_end_time`,`action_time`,`create_time`)\n" +
+                                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+                            return jdbcTemplate.update(sql,user,token,trace,actionLogProperties.getProject(),moudle,actionType,"1",requestUrl,className,methodName,userAgent,remoteIp,requestMethod,requestParams,responseParams
                                     , requestMac,null,threadName,beginTime,endTime,endTime.getTime()-beginTime.getTime(),new Date())>0;
                         }
                     });
@@ -190,9 +204,9 @@ public class ActionLogAspect {
                                     errStack.append("\n\tat " + stack);
                                 }
                             }
-                            String sql="INSERT INTO `sys_action_log`(`token`,`trace`,`project`,`moudle`,`action_type`,`type`,`request_uri`,`class_name`,`method_name`,`user_agent`,`remote_ip`,`request_method`,`request_params`,`response_params`,`request_mac`,`exception`,`action_thread`,`action_start_time`,`action_end_time`,`action_time`,`create_time`)\n" +
-                                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-                            return jdbcTemplate.update(sql,token,trace,actionLogProperties.getProject(),moudle,actionType,"0",requestUrl,className,methodName,userAgent,remoteIp,requestMethod,requestParams,responseParams
+                            String sql="INSERT INTO `sys_action_log`(`user`,`token`,`trace`,`project`,`moudle`,`action_type`,`type`,`request_uri`,`class_name`,`method_name`,`user_agent`,`remote_ip`,`request_method`,`request_params`,`response_params`,`request_mac`,`exception`,`action_thread`,`action_start_time`,`action_end_time`,`action_time`,`create_time`)\n" +
+                                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+                            return jdbcTemplate.update(sql,user,token,trace,actionLogProperties.getProject(),moudle,actionType,"0",requestUrl,className,methodName,userAgent,remoteIp,requestMethod,requestParams,responseParams
                                     , requestMac,errStack.toString(),threadName,beginTime,endTime,endTime.getTime()-beginTime.getTime(),new Date())>0;
                         }
                     });
